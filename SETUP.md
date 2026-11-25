@@ -4,7 +4,7 @@
 
 ## 0. 準備
 
-SYK_CLT で `template/` がコミットされ、push されていることを確かめる。そのコミットを、手順3の `<hash>` に使う。
+使うテンプレートの版が、このリポジトリにコミットされ、push されていることを確かめる。そのコミットとこのリポジトリの URL は、手順5で最初のコミットのメッセージに書く。
 
 ## 1. Lake のプロジェクトを作る
 
@@ -25,14 +25,7 @@ cd <Project>
 
 ## 3. テンプレートのファイルを置く
 
-- `AGENTS.md`・`ARCHITECTURE.md`・`DECISIONS.md` をルートに置く。コピー先の `DECISIONS.md` の日付付きの記録は、次の1件に置き換える（`<hash>` は、テンプレートを取得した SYK_CLT のコミット）。
-
-  ```markdown
-  ## YYYY-MM-DD テンプレートから始める
-  - 判断：SYK_CLT の `template/` の構成で始めた。
-  - 理由：前のプロジェクトで決めた文書の役割分担と CI の構成を引き継ぐため。個々の理由と、テンプレート作成時に未確認だった点は参照先にある。
-  - 参照：SYK_CLT のコミット `<hash>` の `template/`（理由は `DECISIONS.md`、手順と進め方は `SETUP.md`）
-  ```
+- `AGENTS.md`・`ARCHITECTURE.md`・`DECISIONS.md` をルートに置く。コピー先の `DECISIONS.md` は、日付付きの記録を消し、冒頭の記入規則と書式例だけを残す。
 
 - CI の設定は、使うサービスの方だけを置く：GitHub なら `.github/workflows/ci.yml`、GitLab なら `.gitlab-ci.yml`。GitHub Pages は Settings → Pages → Source を GitHub Actions にする。
 - `Blueprint/lakefile.toml` を置き、ルートと同じ `lean-toolchain` を `Blueprint/` にも置く。`<Project>Blueprint.lean`・`<Project>BlueprintMain.lean`・`<Project>Blueprint/` は、Verso Blueprint の `project_template` を参考に作る。
@@ -51,6 +44,14 @@ cd Blueprint && lake update && lake exe cache get && lake build <Project>Bluepri
 ```
 
 - `Blueprint/lake-manifest.json` の mathlib のリビジョンが、ルートの `lake-manifest.json` と一致することを確かめる。
+- 最初のコミットのメッセージに、テンプレートの URL とコミットを書く。
+
+  ```text
+  Initialize from lean-formalization-template
+
+  Template: <template-url> at <hash>
+  ```
+
 - 最初の CI で、利用するサービスの `check` と `blueprint` が成功することを確かめ、結果を `DECISIONS.md` に記録する。
 
 ## 6. 設定の後の進め方
