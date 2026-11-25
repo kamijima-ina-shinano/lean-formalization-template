@@ -1,0 +1,116 @@
+# CI for a repository hosted on GitHub. Delete this file when the repository is hosted elsewhere.
+# Runs on pushes to main that change Lean or Lake files, and on manual runs.
+# Deploys Blueprint/_out/site/html-multi to GitHub Pages from main.
+# Pages setup: Settings → Pages → Build and deployment → Source: GitHub Actions.
+
+name: CI
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - '**.lean'
+      - '**/lakefile.toml'
+      - '**/lake-manifest.json'
+      - '**/lean-toolchain'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer run cancels older checks, but never a running deployment.
+
+jobs:
+  lean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: ${{ github.workflow }}-lean-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: leanprover/lean-action@v1
+        with:
+          build-args: <Project>
+          use-mathlib-cache: true
+          use-github-cache: false
+
+  check:
+    # `lake check` replays the build through the kernel and rejects nonstandard axioms.
+    # It needs bubblewrap. Deploy does not wait for this job until it is known to work in CI.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: ${{ github.workflow }}-check-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: leanprover/lean-action@v1
+        with:
+          build-args: <Project>
+          use-mathlib-cache: true
+          use-github-cache: false
+
+      - name: Install bubblewrap
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+
+      - name: Check with the kernel
+        run: lake check
+
+  blueprint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: ${{ github.workflow }}-blueprint-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: leanprover/lean-action@v1
+        # Jobs do not share build outputs, so this also rebuilds the mathematical library.
+        # Caching Blueprint/.lake avoids rebuilding Verso and its dependencies from source.
+        # Only this job uses the GitHub cache, to stay within the repository's cache limit.
+        with:
+          lake-package-directory: Blueprint
+          build-args: <Project>Blueprint
+          use-mathlib-cache: true
+          use-github-cache: true
+
+      - name: Build Blueprint site
+        working-directory: Blueprint
+        run: lake exe vbp build
+
+      - name: Check Blueprint output
+        working-directory: Blueprint
+        run: lake exe vbp check
+
+      - name: Upload GitHub Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: Blueprint/_out/site/html-multi
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: [lean, blueprint]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-deploy
+      cancel-in-progress: false
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

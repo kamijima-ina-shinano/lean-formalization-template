@@ -1,0 +1,25 @@
+name = "<Project>Blueprint"
+version = "0.1.0"
+defaultTargets = ["<Project>Blueprint"]
+
+[leanOptions]
+pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+relaxedAutoImplicit = false
+weak.linter.mathlibStandardSet = true
+maxSynthPendingDepth = 3
+
+[[require]]
+name = "<Project>"
+path = ".."
+
+[[require]]
+name = "VersoBlueprint"
+git = "https://github.com/leanprover/verso-blueprint"
+rev = "v4.35.0"
+
+[[lean_lib]]
+name = "<Project>Blueprint"
+roots = ["<Project>Blueprint"]
+globs = ["<Project>Blueprint.*", "<Project>BlueprintMain"]
+# Check the complete mathematical library before building its documentation.
+needs = ["<Project>/<Project>:leanArts"]

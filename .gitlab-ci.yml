@@ -1,0 +1,79 @@
+# CI for a repository hosted on GitLab. Delete this file when the repository is hosted elsewhere.
+# Runs on pushes to the default branch that change Lean or Lake files, and on manual runs.
+# Deploys Blueprint/_out/site/html-multi to GitLab Pages from the default branch.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - "**/*.lean"
+        - "**/lakefile.toml"
+        - "**/lake-manifest.json"
+        - "**/lean-toolchain"
+        - .gitlab-ci.yml
+
+stages:
+  - check
+  - deploy
+
+default:
+  image: ubuntu:26.04
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git
+    - curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+    - export PATH="$HOME/.elan/bin:$PATH"
+
+lean:
+  stage: check
+  timeout: 1h
+  interruptible: true
+  script:
+    - lake exe cache get
+    - lake build
+
+check:
+  # `lake check` replays the build through the kernel and rejects nonstandard axioms.
+  # It needs bubblewrap. Pages does not wait for this job until it is known to work in CI.
+  stage: check
+  timeout: 1h
+  interruptible: true
+  script:
+    - apt-get install -y --no-install-recommends bubblewrap
+    - lake exe cache get
+    - lake build
+    - lake check
+
+blueprint:
+  stage: check
+  timeout: 1h
+  interruptible: true
+  # Caching Blueprint/.lake avoids rebuilding Verso and its dependencies from source.
+  cache:
+    key:
+      files:
+        - Blueprint/lake-manifest.json
+        - Blueprint/lean-toolchain
+    paths:
+      - Blueprint/.lake
+  script:
+    - cd Blueprint
+    - lake exe cache get
+    - lake build <Project>Blueprint
+    - lake exe vbp build
+    - lake exe vbp check
+  artifacts:
+    paths:
+      - Blueprint/_out/site/html-multi
+    expire_in: 1 day
+
+deploy:
+  stage: deploy
+  needs: [lean, blueprint]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script: []
+  script:
+    - test -s Blueprint/_out/site/html-multi/index.html
+  pages:
+    publish: Blueprint/_out/site/html-multi
